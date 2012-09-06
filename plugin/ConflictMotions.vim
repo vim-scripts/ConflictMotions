@@ -10,6 +10,9 @@
 " Maintainer:	Ingo Karkat <ingo@karkat.de>
 "
 " REVISION	DATE		REMARKS
+"   1.10.003	20-Aug-2012	The [z / ]z mappings disable the built-in
+"				mappings for moving over the current open fold.
+"				Change default to [= / ]= / i= / a=.
 "   1.00.002	28-Mar-2012	Make mappings configurable.
 "				Change ix text object to iz.
 "	001	12-Mar-2012	file creation
@@ -29,14 +32,14 @@ if ! exists('g:ConflictMotions_ConflictEndMapping')
     let g:ConflictMotions_ConflictEndMapping = 'X'
 endif
 if ! exists('g:ConflictMotions_MarkerMapping')
-    let g:ConflictMotions_MarkerMapping = 'z'
+    let g:ConflictMotions_MarkerMapping = '='
 endif
 
 if ! exists('g:ConflictMotions_ConflictMapping')
     let g:ConflictMotions_ConflictMapping = 'x'
 endif
 if ! exists('g:ConflictMotions_SectionMapping')
-    let g:ConflictMotions_SectionMapping = 'z'
+    let g:ConflictMotions_SectionMapping = '='
 endif
 
 

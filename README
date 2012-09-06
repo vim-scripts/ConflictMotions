@@ -12,7 +12,7 @@ RELATED WORKS
 To be alerted to the existence of conflict markers and to visually
 differentiate the conflicted lines, you can use the highlighting, warnings and
 custom buffer status provided by the companion ConflictDetection.vim plugin
-(vimscript #0000).
+(vimscript #4129).
 
 USAGE
 ]x                      Go to [count] next start of a conflict.
@@ -20,18 +20,18 @@ USAGE
 [x                      Go to [count] previous start of a conflict.
 [X                      Go to [count] previous end of a conflict.
 
-]z                      Go to [count] next conflict marker.
-[z                      Go to [count] previous conflict marker.
+]=                      Go to [count] next conflict marker.
+[=                      Go to [count] previous conflict marker.
 
 
 ax                      "a conflict" text object, select [count] conflicts,
                         including the conflict markers.
 
-az                      "a conflict section" text object, select [count]
+a=                      "a conflict section" text object, select [count]
                         sections (i.e. either ours, theirs, or base) including
                         the conflict marker above, and in the case of "theirs"
                         changes, also the ending conflict marker below.
 
-iz                      "inner conflict section" text object, select current
+i=                      "inner conflict section" text object, select current
                         section (i.e. either ours, theirs, or base) without
                         the surrounding conflict markers.
