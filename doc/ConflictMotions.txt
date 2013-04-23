@@ -38,6 +38,8 @@ USAGE						       *ConflictMotions-usage*
 					 *]=* *[=* *v_]=* *v_[=* *o_]=* *o_[=*
 ]=			Go to [count] next conflict marker.
 [=			Go to [count] previous conflict marker.
+			Mnemonic: = is in the separator between our and their
+			changes.
 
 								   *ax* *v_ax*
 ax			"a conflict" text object, select [count] conflicts,
@@ -51,6 +53,42 @@ a=			"a conflict section" text object, select [count]
 i=			"inner conflict section" text object, select current
 			section (i.e. either ours, theirs, or base) without
 			the surrounding conflict markers.
+
+							       *:ConflictTake*
+:ConflictTake		From the conflict the cursor is in, remove the markers
+			and keep the section the cursor is inside.
+:ConflictTake [none this ours base theirs both all query] [...]
+:ConflictTake [-.<|>+*?][...]
+			From the conflict the cursor is in, remove the markers
+			and keep the passed section(s) (in the order they are
+			specified).
+			    none, - = delete the entire conflict
+			    both    = ours theirs		(+ = <>)
+			    all     = ours [base] theirs	(* = <|>)
+			    query   = ask which sections to take
+:[range]ConflictTake [none this ours base theirs both all range query] [...]
+:[range]ConflictTake [-.<|>+*:?][...]
+			When the cursor is inside a conflict, and the [range]
+			covers part of that conflict:
+			From the conflict the cursor is in, remove the markers
+			and keep the passed range (without contained markers)
+			(and any passed sections in addition; include the
+			"range" argument to put the range somewhere other than
+			the end).
+			Otherwise, when a large range (like %) is passed:
+			For each conflict that starts in [range], remove the
+			markers and keep the passed section(s) / ask which
+			section(s) should be kept. You can answer the question
+			with either the symbol or the choice's starting
+			letter. An uppercase letter will apply the choice to
+			all following conflicts.
+
+	      *<Leader>xd* *<Leader>x.* *<Leader>x<* *<Leader>x|* *<Leader>x>*
+<Leader>xd		Delete the entire current conflict.
+<Leader>x.		Keep the current conflict section, delete the rest.
+<Leader>x<		Keep our changes, delete the rest.
+<Leader>x|		Keep the change base, delete the rest.
+<Leader>x>		Keep their changes, delete the rest.
 
 ==============================================================================
 INSTALLATION					*ConflictMotions-installation*
@@ -67,6 +105,8 @@ DEPENDENCIES					*ConflictMotions-dependencies*
 
 - Requires Vim 7.0 or higher.
 - Requires the CountJump plugin (vimscript #3130).
+- Requires the |ingo-library.vim| plugin (vimscript #4433), version 1.004 or
+  higher.
 
 ==============================================================================
 CONFIGURATION				       *ConflictMotions-configuration*
@@ -87,6 +127,14 @@ To change the default text object mappings, use: >
 To also change the i / a prefix to something else, follow the instructions for
 |CountJump-remap-text-objects|. (This requires CountJump 1.60.)
 
+If you don't want the mappings for |:ConflictTake|: >
+    let g:ConflictMotions_TakeMappingPrefix = ''
+To redefine the mappings, either clear the prefix and use the
+<Plug>(ConflictMotionsTake...) mapping targets, or adapt via the prefix and
+mapping configuration, e.g.: >
+    let g:ConflictMotions_TakeMappingPrefix = '<Leader>='
+    let g:ConflictMotions_TakeMappings = [['d', 'None'], ['x', 'This'], ['o', 'Ours'], ['b', 'Base'], ['t', 'Theirs']]
+<
 ==============================================================================
 LIMITATIONS					 *ConflictMotions-limitations*
 
@@ -98,6 +146,13 @@ IDEAS						       *ConflictMotions-ideas*
 
 ==============================================================================
 HISTORY						     *ConflictMotions-history*
+
+2.00	23-Apr-2013
+- FIX: Don't create the default mapping for
+  <Plug>(ConflictMotionsTakeSelection) in select mode; it should insert a
+  literal <Leader> there.
+- Add the :ConflictTake command to resolve a conflict by picking a section(s).
+- Add dependency to ingo-library (vimscript #4433).
 
 1.10	06-Sep-2012
 The [z / ]z mappings disable the built-in mappings for moving over the current
@@ -111,8 +166,8 @@ First published version.
 Started development.
 
 ==============================================================================
-Copyright: (C) 2012 Ingo Karkat
-The VIM LICENSE applies to this script; see |copyright|.
+Copyright: (C) 2012-2013 Ingo Karkat
+The VIM LICENSE applies to this plugin; see |copyright|.
 
 Maintainer:	Ingo Karkat <ingo@karkat.de>
 ==============================================================================

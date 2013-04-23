@@ -22,7 +22,8 @@ USAGE
 
 ]=                      Go to [count] next conflict marker.
 [=                      Go to [count] previous conflict marker.
-
+                        Mnemonic: = is in the separator between our and their
+                        changes.
 
 ax                      "a conflict" text object, select [count] conflicts,
                         including the conflict markers.
@@ -35,3 +36,37 @@ a=                      "a conflict section" text object, select [count]
 i=                      "inner conflict section" text object, select current
                         section (i.e. either ours, theirs, or base) without
                         the surrounding conflict markers.
+
+:ConflictTake           From the conflict the cursor is in, remove the markers
+                        and keep the section the cursor is inside.
+:ConflictTake [none this ours base theirs both all query] [...]
+:ConflictTake [-.<|>+*?][...]
+                        From the conflict the cursor is in, remove the markers
+                        and keep the passed section(s) (in the order they are
+                        specified).
+                            none, - = delete the entire conflict
+                            both    = ours theirs               (+ = <>)
+                            all     = ours [base] theirs        (* = <|>)
+                            query   = ask which sections to take
+:[range]ConflictTake [none this ours base theirs both all range query] [...]
+:[range]ConflictTake [-.<|>+*:?][...]
+                        When the cursor is inside a conflict, and the [range]
+                        covers part of that conflict:
+                        From the conflict the cursor is in, remove the markers
+                        and keep the passed range (without contained markers)
+                        (and any passed sections in addition; include the
+                        "range" argument to put the range somewhere other than
+                        the end).
+                        Otherwise, when a large range (like %) is passed:
+                        For each conflict that starts in [range], remove the
+                        markers and keep the passed section(s) / ask which
+                        section(s) should be kept. You can answer the question
+                        with either the symbol or the choice's starting
+                        letter. An uppercase letter will apply the choice to
+                        all following conflicts.
+
+<Leader>xd              Delete the entire current conflict.
+<Leader>x.              Keep the current conflict section, delete the rest.
+<Leader>x<              Keep our changes, delete the rest.
+<Leader>x|              Keep the change base, delete the rest.
+<Leader>x>              Keep their changes, delete the rest.
