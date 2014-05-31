@@ -4,12 +4,13 @@
 "   - CountJump/Motion.vim autoload script
 "   - CountJump/TextObject.vim autoload script
 "
-" Copyright: (C) 2012 Ingo Karkat
+" Copyright: (C) 2012-2014 Ingo Karkat
 "   The VIM LICENSE applies to this script; see ':help copyright'.
 "
 " Maintainer:	Ingo Karkat <ingo@karkat.de>
 "
 " REVISION	DATE		REMARKS
+"   2.01.006	19-May-2014	Abort on error of :ConflictTake.
 "   2.00.005	18-Jan-2013	FIX: Don't create the default mapping for
 "				<Plug>(ConflictMotionsTakeSelection) in select
 "				mode; it should insert a literal <Leader> there.
@@ -58,7 +59,7 @@ endif
 
 "- commands --------------------------------------------------------------------
 
-command! -bar -nargs=* -range=1 -complete=customlist,ConflictMotions#Complete ConflictTake call ConflictMotions#Take(<line1>, <line2>, <q-args>)
+command! -bar -nargs=* -range=1 -complete=customlist,ConflictMotions#Complete ConflictTake if ! ConflictMotions#Take(<line1>, <line2>, <q-args>) | echoerr ingo#err#Get() | endif
 
 
 "- mappings --------------------------------------------------------------------

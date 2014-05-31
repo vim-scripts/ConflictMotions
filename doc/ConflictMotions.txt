@@ -105,7 +105,7 @@ DEPENDENCIES					*ConflictMotions-dependencies*
 
 - Requires Vim 7.0 or higher.
 - Requires the CountJump plugin (vimscript #3130).
-- Requires the |ingo-library.vim| plugin (vimscript #4433), version 1.004 or
+- Requires the |ingo-library.vim| plugin (vimscript #4433), version 1.019 or
   higher.
 
 ==============================================================================
@@ -147,6 +147,21 @@ IDEAS						       *ConflictMotions-ideas*
 ==============================================================================
 HISTORY						     *ConflictMotions-history*
 
+2.01	31-May-2014
+- BUG: "E16: Invalid range" error when taking a conflict section of a hunk at
+  the end of the file. Use ingo#lines#PutBefore(). Thanks to Kballard for
+  reporting this on the Vim Tips Wiki and suggesting the fix.
+- BUG: Taking conflicts where a single hunk spans the entire buffer adds a
+  blank line. Use ingo#lines#Replace(), which now handles this. Thanks to
+  Kballard for reporting this on the Vim Tips Wiki.
+- The CountJump operator-pending mapping will beep when the inner conflict
+  section is empty, but for taking such a section, the beep is unexpected.
+  Detect this special case and skip the CountJump text object then. Thanks to
+  Kballard for reporting this on the Vim Tips Wiki.
+- Abort on error of :ConflictTake.
+- Use ingo#register#KeepRegisterExecuteOrFunc(). *** You need to update to
+  ingo-library (vimscript #4433) version 1.019! ***
+
 2.00	23-Apr-2013
 - FIX: Don't create the default mapping for
   <Plug>(ConflictMotionsTakeSelection) in select mode; it should insert a
@@ -166,7 +181,7 @@ First published version.
 Started development.
 
 ==============================================================================
-Copyright: (C) 2012-2013 Ingo Karkat
+Copyright: (C) 2012-2014 Ingo Karkat
 The VIM LICENSE applies to this plugin; see |copyright|.
 
 Maintainer:	Ingo Karkat <ingo@karkat.de>

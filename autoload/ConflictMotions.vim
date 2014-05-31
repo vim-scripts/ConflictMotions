@@ -2,13 +2,35 @@
 "
 " DEPENDENCIES:
 "   - ingo/lines.vim autoload script
+"   - ingo/err.vim autoload script
+"   - ingo/register.vim autoload script
 "
-" Copyright: (C) 2012-2013 Ingo Karkat
+" Copyright: (C) 2012-2014 Ingo Karkat
 "   The VIM LICENSE applies to this script; see ':help copyright'.
 "
 " Maintainer:	Ingo Karkat <ingo@karkat.de>
 "
 " REVISION	DATE		REMARKS
+"   2.01.006	19-May-2014	BUG: "E16: Invalid range" error when taking a
+"				conflict section of a hunk at the end of the
+"				file. Use ingo#lines#PutBefore(). Thanks to
+"				Kballard for reporting this on the Vim Tips Wiki
+"				and suggesting the fix.
+"				BUG: Taking conflicts where a single hunk spans
+"				the entire buffer adds a blank line. Use
+"				ingo#lines#Replace(), which now handles this.
+"				Thanks to Kballard for reporting this on the Vim
+"				Tips Wiki.
+"				The CountJump operator-pending mapping will beep
+"				when the inner conflict section is empty, but
+"				for taking such a section, the beep is
+"				unexpected. Detect this special case and skip
+"				the CountJump text object then. Thanks to
+"				Kballard for reporting this on the Vim Tips
+"				Wiki.
+"				Abort on error of :ConflictTake.
+"   2.01.005	05-May-2014	Use ingo#msg#ErrorMsg().
+"   2.01.004	18-Nov-2013	Use ingo#register#KeepRegisterExecuteOrFunc().
 "   2.00.003	04-Apr-2013	Move ingolines#PutWrapper() into ingo-library.
 "   2.00.002	31-Oct-2012	Implement iteration over all markers in the
 "				passed range.
@@ -37,16 +59,6 @@ function! s:CanonicalizeArguments( arguments, startLnum, endLnum )
     endfor
 
     return l:result
-endfunction
-function! s:ErrorMsg( text, isBeep )
-    let v:errmsg = a:text
-    echohl ErrorMsg
-    echomsg v:errmsg
-    echohl None
-
-    if a:isBeep
-	execute "normal! \<C-\>\<C-n>\<Esc>" | " Beep.
-    endif
 endfunction
 function! s:EchoQuestion( conflictCnt )
     echohl Question
@@ -139,17 +151,21 @@ function! s:GetCurrentConflict( currentLnum )
 
     return [line('.'), l:endLnum]
 endfunction
+function! s:SetErrorAndBeep( msg )
+    call ingo#err#Set(a:msg)
+    execute "normal! \<C-\>\<C-n>\<Esc>" | " Beep.
+endfunction
 function! s:CaptureSection()
-    let l:save_clipboard = &clipboard
-    set clipboard= " Avoid clobbering the selection and clipboard registers.
-    let l:save_reg = getreg('"')
-    let l:save_regmode = getregtype('"')
-	silent execute printf('normal yi%s', g:ConflictMotions_SectionMapping)
-	let l:section = @"
-    call setreg('"', l:save_reg, l:save_regmode)
-    let &clipboard = l:save_clipboard
-
-    return l:section
+    if search('^\([<=|]\)\{7}\1\@!.*\n\([=>|]\)\{7}\1\@!', 'bcnW', line('.')) > 0 ||
+    \   search('^\([<=|]\)\{7}\1\@!.*\n>\{7}>\@!', 'bcnW', line('.') - 1) > 0
+	" The CountJump operator-pending mapping will beep when the inner
+	" conflict section is empty, but for taking such a section, the beep is
+	" unexpected (because the other sections are deleted, and in this corner
+	" case, "nothing" is kept). As we cannot easily :silent the CountJump,
+	" detect this special case and skip the CountJump text object then.
+	return ''
+    endif
+    return ingo#register#KeepRegisterExecuteOrFunc('silent execute "normal yi" . ' . string(g:ConflictMotions_SectionMapping) . '| return @"')
 endfunction
 function! ConflictMotions#Take( takeStartLnum, takeEndLnum, arguments )
     let s:stickyChoice = ''
@@ -163,7 +179,7 @@ function! ConflictMotions#Take( takeStartLnum, takeEndLnum, arguments )
     if l:hasRange
 	if l:isInsideConflict && a:takeStartLnum > l:startLnum && a:takeEndLnum < l:endLnum
 	    " Take the selected lines from the current conflict.
-	    call ConflictMotions#TakeFromConflict(0, l:currentLnum, l:startLnum, l:endLnum, a:arguments, 'this', 1, a:takeStartLnum, a:takeEndLnum)
+	    return (ConflictMotions#TakeFromConflict(0, l:currentLnum, l:startLnum, l:endLnum, a:arguments, 'this', 1, a:takeStartLnum, a:takeEndLnum) != -1)
 	else
 	    " Go through all conflicts found in the range.
 	    let [l:takeStartLnum, l:takeEndLnum] = [a:takeStartLnum, a:takeEndLnum]
@@ -192,16 +208,20 @@ function! ConflictMotions#Take( takeStartLnum, takeEndLnum, arguments )
 	    if l:conflictCnt == 0
 		" Not a single conflict was found.
 		call winrestview(l:save_view)
-		call s:ErrorMsg(printf('No conflicts %s', (a:takeStartLnum == 1 && a:takeEndLnum == line('$') ? 'in buffer' : 'inside range')), 1)
+		call s:SetErrorAndBeep(printf('No conflicts %s', (a:takeStartLnum == 1 && a:takeEndLnum == line('$') ? 'in buffer' : 'inside range')))
+		return 0
+	    else
+		return 1
 	    endif
 	endif
     elseif ! l:isInsideConflict
 	" Capture failed; the cursor is not inside a conflict.
 	call winrestview(l:save_view)
-	call s:ErrorMsg('Not inside conflict', 1)
+	call s:SetErrorAndBeep('Not inside conflict')
+	return 0
     else
 	" Take from the current conflict.
-	call ConflictMotions#TakeFromConflict(0, l:currentLnum, l:startLnum, l:endLnum, a:arguments, 'this', 0, 0, 0)
+	return (ConflictMotions#TakeFromConflict(0, l:currentLnum, l:startLnum, l:endLnum, a:arguments, 'this', 0, 0, 0) != -1)
     endif
 endfunction
 function! ConflictMotions#TakeFromConflict( conflictCnt, currentLnum, startLnum, endLnum, arguments, defaultArgument, isKeepRange, takeStartLnum, takeEndLnum )
@@ -244,7 +264,7 @@ function! ConflictMotions#TakeFromConflict( conflictCnt, currentLnum, startLnum,
 		let l:isFoundMarker = 1
 	    else
 		call cursor(a:currentLnum, 1)
-		call s:ErrorMsg('No range given; invalid argument "' . l:what . '"', 0)
+		call ingo#err#Set('No range given; invalid argument "' . l:what . '"')
 		return -1
 	    endif
 	elseif l:what ==? 'query' || l:what ==# '?'
@@ -256,13 +276,13 @@ function! ConflictMotions#TakeFromConflict( conflictCnt, currentLnum, startLnum,
 		return ConflictMotions#TakeFromConflict(a:conflictCnt, a:currentLnum, a:startLnum, a:endLnum, l:response, '', a:isKeepRange, a:takeStartLnum, a:takeEndLnum)
 	    endif
 	else
-	    call s:ErrorMsg('Invalid argument: ' . l:what, 0)
+	    call ingo#err#Set('Invalid argument: ' . l:what)
 	    return -1
 	endif
 
 	if ! l:isFoundMarker
 	    call cursor(a:startLnum, 1)
-	    call s:ErrorMsg('Conflict marker not found', 1)
+	    call s:SetErrorAndBeep('Conflict marker not found')
 	    return -1
 	endif
 
@@ -273,12 +293,12 @@ function! ConflictMotions#TakeFromConflict( conflictCnt, currentLnum, startLnum,
 	endif
     endfor
 
-    execute (empty(l:sections) ? '' : 'silent') printf('%d,%ddelete _', a:startLnum, a:endLnum)
     if empty(l:sections)
+	execute printf('%d,%ddelete _', a:startLnum, a:endLnum)
 	return (a:endLnum - a:startLnum + 1)
     else
 	let l:prevLineCnt = line('$')
-	call ingo#lines#PutWrapper(a:startLnum, 'put!', l:sections)
+	call ingo#lines#Replace(a:startLnum, a:endLnum, l:sections)
 	return (a:endLnum - a:startLnum + 1) - (line('$') - l:prevLineCnt)
     endif
 endfunction
