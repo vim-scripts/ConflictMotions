@@ -11,6 +11,12 @@
 " Maintainer:	Ingo Karkat <ingo@karkat.de>
 "
 " REVISION	DATE		REMARKS
+"   2.02.007	18-Jul-2014	Regression: Version 2.01 introduced a bad offset
+"				calculation, potentially resulting in left-over
+"				conflicts, e.g. on :%ConflictTake.
+"				Do not allow combination of a range inside a
+"				conflict with a section argument, as the two
+"				contradict each other. Print an error instead.
 "   2.01.006	19-May-2014	BUG: "E16: Invalid range" error when taking a
 "				conflict section of a hunk at the end of the
 "				file. Use ingo#lines#PutBefore(). Thanks to
@@ -178,6 +184,11 @@ function! ConflictMotions#Take( takeStartLnum, takeEndLnum, arguments )
 
     if l:hasRange
 	if l:isInsideConflict && a:takeStartLnum > l:startLnum && a:takeEndLnum < l:endLnum
+	    if ! empty(a:arguments)
+		call ingo#err#Set('Cannot combine range inside conflict with section argument.')
+		return 0
+	    endif
+
 	    " Take the selected lines from the current conflict.
 	    return (ConflictMotions#TakeFromConflict(0, l:currentLnum, l:startLnum, l:endLnum, a:arguments, 'this', 1, a:takeStartLnum, a:takeEndLnum) != -1)
 	else
@@ -299,7 +310,7 @@ function! ConflictMotions#TakeFromConflict( conflictCnt, currentLnum, startLnum,
     else
 	let l:prevLineCnt = line('$')
 	call ingo#lines#Replace(a:startLnum, a:endLnum, l:sections)
-	return (a:endLnum - a:startLnum + 1) - (line('$') - l:prevLineCnt)
+	return l:prevLineCnt - line('$')
     endif
 endfunction
 

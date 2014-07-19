@@ -147,6 +147,12 @@ IDEAS						       *ConflictMotions-ideas*
 ==============================================================================
 HISTORY						     *ConflictMotions-history*
 
+2.02	19-Jul-2014
+- Regression: Version 2.01 introduced a bad offset calculation, potentially
+  resulting in left-over conflicts, e.g. on :%ConflictTake.
+- Do not allow combination of a range inside a conflict with a section
+  argument, as the two contradict each other. Print an error instead.
+
 2.01	31-May-2014
 - BUG: "E16: Invalid range" error when taking a conflict section of a hunk at
   the end of the file. Use ingo#lines#PutBefore(). Thanks to Kballard for
