@@ -11,6 +11,22 @@
 " Maintainer:	Ingo Karkat <ingo@karkat.de>
 "
 " REVISION	DATE		REMARKS
+"   2.10.008	21-Jul-2014	Handle folded ranges overlapping the conflicts.
+"				Thanks to Maxim Gonchar for reporting this.
+"				When querying which conflict sections to keep,
+"				open folds so that if possible the entire
+"				conflict is visible, but at least the section
+"				markers.
+"				Re-allow combining range inside conflict with
+"				section argument, but only for the :ConflictTake
+"				command, not the mappings. Because we cannot
+"				pass the range to the :if necessary for error
+"				handling, it's convenient that the mappings
+"				continue to invoke the :ConflictTake command.
+"				Refactoring: Split arguments earlier.
+"				Indicate invocation from mapping via a special,
+"				hidden "mapping" argument, and print a
+"				(modified) error message only in that case.
 "   2.02.007	18-Jul-2014	Regression: Version 2.01 introduced a bad offset
 "				calculation, potentially resulting in left-over
 "				conflicts, e.g. on :%ConflictTake.
@@ -77,8 +93,26 @@ function! s:Query( conflictCnt, startLnum, endLnum )
 	return s:stickyChoice
     endif
 
+    let l:currentHeight = winheight(0)
+    let l:conflictHeight = a:endLnum - a:startLnum + 1
+
+    " Open folds.
+    if l:conflictHeight + 2 < l:currentHeight
+	" The entire conflict easily fits into the current window; open all
+	" folds.
+	execute printf('%d,%dfoldopen!', a:startLnum, a:endLnum)
+    else
+	" The conflict does not / only barely fits into the current window; just
+	" make the lines with the fold markers visible (entire substructures
+	" inside a conflict section may continue to be folded, to save space).
+	execute a:startLnum 'normal! zv'
+	while search('^\([=>|]\)\{7}\1\@!', 'W', a:endLnum) > 0
+	    normal! zv
+	endwhile
+    endif
+
     " If possible, show the entire conflict (in the middle) of the window.
-    let l:padding = (winheight(0) - a:endLnum + a:startLnum - 1) / 2
+    let l:padding = (l:currentHeight - l:conflictHeight) / 2
     let l:firstVisibleLnum = max([1, a:startLnum - max([0, l:padding])])
     execute 'normal!' l:firstVisibleLnum . 'zt'
     call cursor(a:startLnum, 1) " Restore the cursor to the start of the current conflict.
@@ -178,19 +212,26 @@ function! ConflictMotions#Take( takeStartLnum, takeEndLnum, arguments )
     let l:currentLnum = line('.')
     let l:save_view = winsaveview()
     let l:hasRange = (a:takeEndLnum != 1)
+    let l:arguments = split(a:arguments, '\s\+\|\%(\A\&\S\)\zs')
+
+    let l:isMapping = 0
+    if get(l:arguments, 0, '') ==# 'mapping'    " Special, hidden argument for internal use.
+	let l:isMapping = 1
+	call remove(l:arguments, 0)
+    endif
 
     let [l:startLnum, l:endLnum] = s:GetCurrentConflict(l:currentLnum)
     let l:isInsideConflict = (l:startLnum != 0 && l:endLnum != 0)
 
     if l:hasRange
 	if l:isInsideConflict && a:takeStartLnum > l:startLnum && a:takeEndLnum < l:endLnum
-	    if ! empty(a:arguments)
-		call ingo#err#Set('Cannot combine range inside conflict with section argument.')
+	    if l:isMapping && ! empty(l:arguments)
+		call ingo#err#Set('Cannot apply to range inside conflict; select full conflict(s).')
 		return 0
 	    endif
 
 	    " Take the selected lines from the current conflict.
-	    return (ConflictMotions#TakeFromConflict(0, l:currentLnum, l:startLnum, l:endLnum, a:arguments, 'this', 1, a:takeStartLnum, a:takeEndLnum) != -1)
+	    return (ConflictMotions#TakeFromConflict(0, l:currentLnum, l:startLnum, l:endLnum, l:arguments, 'this', 1, a:takeStartLnum, a:takeEndLnum) != -1)
 	else
 	    " Go through all conflicts found in the range.
 	    let [l:takeStartLnum, l:takeEndLnum] = [a:takeStartLnum, a:takeEndLnum]
@@ -208,7 +249,7 @@ function! ConflictMotions#Take( takeStartLnum, takeEndLnum, arguments )
 		endif
 
 		let l:conflictCnt += 1
-		let l:offset = ConflictMotions#TakeFromConflict(l:conflictCnt, l:startLnum, l:startLnum, l:endLnum, a:arguments, 'query', 0, 0, 0)
+		let l:offset = ConflictMotions#TakeFromConflict(l:conflictCnt, l:startLnum, l:startLnum, l:endLnum, l:arguments, 'query', 0, 0, 0)
 		if l:offset == -1
 		    break
 		else
@@ -232,11 +273,11 @@ function! ConflictMotions#Take( takeStartLnum, takeEndLnum, arguments )
 	return 0
     else
 	" Take from the current conflict.
-	return (ConflictMotions#TakeFromConflict(0, l:currentLnum, l:startLnum, l:endLnum, a:arguments, 'this', 0, 0, 0) != -1)
+	return (ConflictMotions#TakeFromConflict(0, l:currentLnum, l:startLnum, l:endLnum, l:arguments, 'this', 0, 0, 0) != -1)
     endif
 endfunction
 function! ConflictMotions#TakeFromConflict( conflictCnt, currentLnum, startLnum, endLnum, arguments, defaultArgument, isKeepRange, takeStartLnum, takeEndLnum )
-"****D echomsg '****' a:arguments a:isKeepRange a:startLnum a:endLnum
+"****D echomsg '****' string(a:arguments) a:isKeepRange a:startLnum a:endLnum
     if a:isKeepRange
 	let l:rangeSection =
 	\   join(
@@ -247,11 +288,10 @@ function! ConflictMotions#TakeFromConflict( conflictCnt, currentLnum, startLnum,
     endif
 
     let l:sections = ''
-    let l:arguments = split(a:arguments, '\s\+\|\%(\A\&\S\)\zs')
     for l:what in (empty(a:arguments) && ! a:isKeepRange ?
     \   [a:defaultArgument] :
-    \   s:CanonicalizeArguments(l:arguments, a:startLnum, a:endLnum) +
-    \       (! a:isKeepRange || index(l:arguments, 'range', 0, 1) != -1 || index(l:arguments, ':') != -1 ? [] : ['range'])
+    \   s:CanonicalizeArguments(a:arguments, a:startLnum, a:endLnum) +
+    \       (! a:isKeepRange || index(a:arguments, 'range', 0, 1) != -1 || index(a:arguments, ':') != -1 ? [] : ['range'])
     \)
 	call cursor(a:startLnum, 1)
 
@@ -304,14 +344,20 @@ function! ConflictMotions#TakeFromConflict( conflictCnt, currentLnum, startLnum,
 	endif
     endfor
 
-    if empty(l:sections)
-	execute printf('%d,%ddelete _', a:startLnum, a:endLnum)
-	return (a:endLnum - a:startLnum + 1)
-    else
-	let l:prevLineCnt = line('$')
-	call ingo#lines#Replace(a:startLnum, a:endLnum, l:sections)
-	return l:prevLineCnt - line('$')
-    endif
+    let l:save_foldenable = &l:foldenable
+    setlocal nofoldenable
+    try
+	if empty(l:sections)
+	    execute printf('%d,%ddelete _', a:startLnum, a:endLnum)
+	    return (a:endLnum - a:startLnum + 1)
+	else
+	    let l:prevLineCnt = line('$')
+	    call ingo#lines#Replace(a:startLnum, a:endLnum, l:sections)
+	    return l:prevLineCnt - line('$')
+	endif
+    finally
+	let &l:foldenable = l:save_foldenable
+    endtry
 endfunction
 
 let &cpo = s:save_cpo

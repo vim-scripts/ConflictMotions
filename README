@@ -48,6 +48,7 @@ i=                      "inner conflict section" text object, select current
                             both    = ours theirs               (+ = <>)
                             all     = ours [base] theirs        (* = <|>)
                             query   = ask which sections to take
+                        Note: | must be escaped as \|.
 :[range]ConflictTake [none this ours base theirs both all range query] [...]
 :[range]ConflictTake [-.<|>+*:?][...]
                         When the cursor is inside a conflict, and the [range]
@@ -55,8 +56,8 @@ i=                      "inner conflict section" text object, select current
                         From the conflict the cursor is in, remove the markers
                         and keep the passed range (without contained markers)
                         (and any passed sections in addition; include the
-                        "range" argument to put the range somewhere other than
-                        the end).
+                        "range" / ":" argument to put the range somewhere
+                        other than the end).
                         Otherwise, when a large range (like %) is passed:
                         For each conflict that starts in [range], remove the
                         markers and keep the passed section(s) / ask which
@@ -65,8 +66,14 @@ i=                      "inner conflict section" text object, select current
                         letter. An uppercase letter will apply the choice to
                         all following conflicts.
 
-<Leader>xd              Delete the entire current conflict.
-<Leader>x.              Keep the current conflict section, delete the rest.
+<Leader>xd              Delete the entire current conflict / all conflicts in
+                        the selection.
 <Leader>x<              Keep our changes, delete the rest.
 <Leader>x|              Keep the change base, delete the rest.
 <Leader>x>              Keep their changes, delete the rest.
+
+<Leader>x.              Keep the current conflict section, delete the rest.
+{Visual}<Leader>x.      From the conflict the cursor is in, remove the markers
+                        and keep the selected lines (without contained markers).
+                        For each conflict that starts in the selection, remove
+                        the markers and ask which section(s) should be kept.
